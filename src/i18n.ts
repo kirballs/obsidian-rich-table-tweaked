@@ -172,6 +172,11 @@ const EN = {
 		'and the style panel opens with Ctrl/Cmd+click instead of double-click. Speeds up ' +
 		'rapid consecutive editing. When off (default), single click enters edit after a short ' +
 		'delay and double click opens the style panel.',
+	settingOpenInPreviewName: 'Open rich tables in preview mode',
+	settingOpenInPreviewDesc:
+		'When a note that contains a rich table is opened in source mode, switch it to ' +
+		'reading (preview) mode so the rendered table is visible instead of the raw block ' +
+		'source. Live preview is left as-is — it already renders the table inline.',
 	settingBuiltinTypes:     'Built-in types',
 	settingDatePickerDesc:   'Date picker (YYYY-MM-DD)',
 	settingCustomTypes:      'Custom types',
@@ -185,6 +190,10 @@ const EN = {
 	settingOptionLabelPlaceholder: 'Label',
 	settingDeleteOption:     'Delete option',
 	settingDefaultOptionLabel: 'Option 1 (edit me)',
+
+	// Status-bar horizontal scrollbar arrows
+	scrollLeft:  'Scroll left',
+	scrollRight: 'Scroll right',
 } as const;
 
 const ZH: { [K in keyof typeof EN]: string } = {
@@ -326,6 +335,9 @@ const ZH: { [K in keyof typeof EN]: string } = {
 	settingSingleClickEditName: '单击即可编辑',
 	settingSingleClickEditDesc:
 		'开启后，单击单元格会立即进入编辑(无需区分双击，响应更快)，样式面板通过 Ctrl/Cmd+点击 打开。关闭时（默认），单击进入编辑（稍有迟缓），双击打开样式面板。',
+	settingOpenInPreviewName: '富表格默认以预览模式打开',
+	settingOpenInPreviewDesc:
+		'当打开包含富表格的笔记且当前处于源码模式时，自动切换到阅读（预览）模式，直接显示渲染后的表格而不是原始代码块。实时预览保持不变（它本身就会内联渲染表格）。',
 	settingBuiltinTypes:     '内置类型',
 	settingDatePickerDesc:   '日期选择器（YYYY-MM-DD）',
 	settingCustomTypes:      '自定义类型',
@@ -339,6 +351,10 @@ const ZH: { [K in keyof typeof EN]: string } = {
 	settingOptionLabelPlaceholder: '标签',
 	settingDeleteOption:     '删除选项',
 	settingDefaultOptionLabel: '选项 1（点击编辑）',
+
+	// 状态栏横向滚动条箭头
+	scrollLeft:  '向左滚动',
+	scrollRight: '向右滚动',
 };
 
 export function t(key: keyof typeof EN): string {

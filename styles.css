@@ -318,8 +318,12 @@
 }
 .bt-render-root:hover .bt-view-resize { opacity: 1; }
 .bt-view-resize-b { left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
-.bt-view-resize-r { top: 0; bottom: 0; right: 0; width: 6px; cursor: ew-resize; }
-.bt-view-resize-br { right: 0; bottom: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+/* 8px (was 6): the width handle had no hover indicator at all — unlike the
+ * height handle's dash below — and was effectively undiscoverable, so the
+ * view's HORIZONTAL limit looked unadjustable while the vertical one had an
+ * obvious grab point. Wider hit area + the dash mark fix that. */
+.bt-view-resize-r { top: 0; bottom: 0; right: 0; width: 8px; cursor: ew-resize; }
+.bt-view-resize-br { right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; }
 .bt-view-resize:hover { background: var(--interactive-accent); opacity: 0.35; }
 .bt-view-resize-br:hover { opacity: 0.55; }
 /* Height handle now lives inside .bt-status-bar (Task 8) — a short dash on
@@ -338,6 +342,22 @@
 	opacity: 0;
 }
 .bt-view-resize-b:hover::after { opacity: 1; }
+/* Width handle — the vertical mirror of the height handle's dash (same
+ * "a plain tint reads ambiguously" reasoning), so both view-edge handles
+ * advertise themselves the same way on hover. */
+.bt-view-resize-r::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 2px;
+	height: 24px;
+	background: var(--text-faint);
+	border-radius: 1px;
+	transform: translate(-50%, -50%);
+	opacity: 0;
+}
+.bt-view-resize-r:hover::after { opacity: 1; }
 /* Suppress Obsidian-theme margins and cell borders that bleed into rich-table.
  * Themes control lines via CSS variables (§15: themes only set variables, base sets properties):
  *   --bt-cell-border          shorthand for all four sides  (default: none)
@@ -1358,8 +1378,19 @@
 .bt-table .bt-align-right  { text-align: right; }
 
 /* Style rule helpers */
-.bt-table .bt-bold   { font-weight: bold; }
-.bt-table .bt-italic { font-style: italic; }
+/* Bold/italic apply to the WHOLE cell, links included. Obsidian's own
+ * stylesheet sets explicit font properties on its rendered links (<a>,
+ * .internal-link, …), which beat plain CSS inheritance — so a link inside a
+ * bold/italic cell used to render at the normal weight/style while the rest
+ * of the cell stayed bold/italic (reported: a column set to bold, then a
+ * [word](url) in one of its cells lost its boldness). The descendant rules
+ * force the cell's emphasis through to every child. !important matches
+ * applyResolvedStyle's own invariant (renderCellStyle.ts): a user-set cell
+ * style must win over any theme/app rule, whatever that theme does. */
+.bt-table .bt-bold,
+.bt-table .bt-bold * { font-weight: bold !important; }
+.bt-table .bt-italic,
+.bt-table .bt-italic * { font-style: italic !important; }
 
 /* MarkdownRenderer wraps content in <div.markdown-rendered> inside each cell.
  * Override Obsidian's spacing CSS variables so themes can't add gaps via var(). */
@@ -2590,27 +2621,57 @@
 	background: var(--background-modifier-border);
 	border-radius: 1px;
 }
+/* Bigger + easier (reported: the old 8px mini-track was nearly impossible to
+ * grab): arrow buttons on both ends, a 14px track, a grip line on the thumb,
+ * and — in renderer.ts — clicking the track jumps the thumb there and wheel
+ * over the section scrolls the table. 180px default (was 120) so there's
+ * room for the arrows plus a grabbable track. */
 .bt-status-scroll {
-	flex: 0 0 var(--bt-status-scroll-w, 120px);
+	flex: 0 0 var(--bt-status-scroll-w, 180px);
 	display: flex;
 	align-items: center;
+	gap: 2px;
 	padding: 0 var(--size-4-1);
 }
+.bt-status-scroll-arrow {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	cursor: pointer;
+	user-select: none;
+	transition: background 0.08s, color 0.08s;
+}
+/* Sized off Obsidian's own font-size variable, not a fixed px — same
+ * reasoning as .bt-ctrl-btn svg (tracks the user's global font-size/zoom). */
+.bt-status-scroll-arrow svg { width: var(--font-ui-small); height: var(--font-ui-small); }
+.bt-status-scroll-arrow:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
 /* No overflow to scroll — the thumb fills the whole track instead of
  * disappearing (renderer.ts's syncScrollThumb sets --bt-status-thumb-w to the
  * track's own width for this state): a hidden control here read as broken
  * ("看起来像什么都没有") rather than "the whole table is already visible".
- * Non-interactive since there's nothing to drag to. */
+ * Non-interactive since there's nothing to drag to — arrows included, since
+ * scrollByStep's own scrollRange guard makes them no-ops in this state. */
 .bt-status-scroll.bt-status-scroll-empty .bt-status-scroll-thumb {
 	cursor: default;
 	pointer-events: none;
 }
+.bt-status-scroll.bt-status-scroll-empty .bt-status-scroll-arrow {
+	opacity: 0;
+	pointer-events: none;
+}
 .bt-status-scroll-track {
 	position: relative;
+	flex: 1 1 auto;
 	width: 100%;
-	height: 8px;
+	height: 14px;
 	background: var(--background-modifier-border);
-	border-radius: 4px;
+	border-radius: 7px;
+	cursor: pointer; /* clicking the track (not just the thumb) jumps there */
 }
 /* Width/left are JS-set (renderer.ts's syncScrollThumb), mirroring the real
  * wrapper's scrollLeft/scrollWidth/clientWidth — see the status-bar solution
@@ -2622,11 +2683,27 @@
 	height: 100%;
 	width: var(--bt-status-thumb-w, 30%);
 	background: var(--text-faint);
-	border-radius: 4px;
-	cursor: pointer;
+	border-radius: 7px;
+	cursor: grab;
+}
+/* Center grip line — the "grab me" affordance a plain rectangle lacks,
+ * visible at 14px without needing the thumb to be much fatter. */
+.bt-status-scroll-thumb::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 2px;
+	height: 8px;
+	border-radius: 1px;
+	background: color-mix(in srgb, var(--text-normal) 40%, transparent);
+	transform: translate(-50%, -50%);
 }
 .bt-status-scroll-thumb:hover {
 	background: var(--text-muted);
+}
+.bt-status-scroll-thumb:active {
+	cursor: grabbing;
 }
 
 /* ── Sheet tabs (multi-sheet workbooks) ─────────────────────────────────── */

@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Plugin } from 'obsidian';
+import { Editor, MarkdownView, Plugin, TFile } from 'obsidian';
 import { BetterTableSettingTab, DEFAULT_SETTINGS } from './settings';
 import { ChoiceRegistry } from './choiceRegistry';
 import { TableBlock } from './tableBlock';
@@ -22,6 +22,17 @@ export default class BetterTablePlugin extends Plugin {
 		});
 
 		this.addSettingTab(new BetterTableSettingTab(this.app, this));
+
+		// "Defaults to preview mode" (user request): notes that contain a rich
+		// table open in reading (preview) mode instead of source mode, so the
+		// rendered table is what you see. Source mode is the only mode switched
+		// — live preview already renders the block inline, and forcing a
+		// reading view on top of it would change an experience the user chose.
+		this.registerEvent(this.app.workspace.on('file-open', (file) => {
+			if (!this.settings.openInPreview) return;
+			if (!(file instanceof TFile) || file.extension !== 'md') return;
+			void this.openRichTableInPreview(file);
+		}));
 
 		// Three entry points for the one action, per user request — a command
 		// (which is also how a user assigns their own hotkey, via Settings →
@@ -76,6 +87,32 @@ export default class BetterTablePlugin extends Plugin {
 					.onClick(() => this.applyMarkdownTableConversion(editor, plan)));
 			}
 		}));
+	}
+
+	/**
+	 * Switch every open source-mode view of `file` to reading (preview) mode if
+	 * the note contains a rich-table block. Deferred one frame so Obsidian has
+	 * finished settling on the file's default view before we look at it; the
+	 * content check is an in-memory cached read (no disk access) and the whole
+	 * thing is a no-op for notes without a ```rich-table block.
+	 */
+	private openRichTableInPreview(file: TFile): void {
+		window.requestAnimationFrame(() => {
+			void this.app.vault.cachedRead(file).then(content => {
+				if (!content.includes('```rich-table')) return;
+				for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+					const view = leaf.view;
+					if (!(view instanceof MarkdownView) || view.file !== file) continue;
+					if (view.getMode() !== 'source') continue;
+					// setMode is the same stable runtime method the view's own
+					// mode-toggle button calls, but the public type definitions
+					// only declare getMode — narrow it here.
+					(view as MarkdownView & {
+						setMode(mode: 'source' | 'live-preview' | 'preview'): void;
+					}).setMode('preview');
+				}
+			}).catch(() => { /* unreadable file — leave the view as-is */ });
+		});
 	}
 
 	/** Inserts an empty rich-table block at the cursor — the existing empty-block
