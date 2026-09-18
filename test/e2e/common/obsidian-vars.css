@@ -79,3 +79,19 @@ body {
 	border: 1px solid var(--background-modifier-border);
 	padding: 4px 8px;
 }
+
+/*
+ * OBSIDIAN'S LINK FONT RESET — the app sets explicit font properties on
+ * rendered markdown links (a link in a cell is an <a> inside
+ * .markdown-rendered content). An explicit declaration on the <a> beats what
+ * the styled <td> would pass down by plain inheritance, which is why a column
+ * set to bold/italic used to render its link text at the normal weight/style
+ * (reported: "it forgets the boldness or italic and the letters reset to
+ * their normal look while still embedded with the url"). The plugin's
+ * .bt-bold/.bt-italic descendant rules (styles.css) exist to win this exact
+ * cascade — if they can't win here, they can't win in the vault.
+ */
+.markdown-rendered a {
+	font-weight: 400;
+	font-style: normal;
+}

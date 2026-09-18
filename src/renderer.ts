@@ -70,16 +70,19 @@ export async function renderTable(
 	 *  reference into a normal, fully-editable rich-table (see
 	 *  tableBlock.ts's detachFromXlsx). */
 	onDetachFromXlsx?: () => void,
-	/** View-outer-edge drag-resize, for an xlsx-backed table specifically —
-	 *  same xlsx-only gate as onOpenExternalFile/onDetachFromXlsx above, and
-	 *  deliberately its OWN pair of callbacks rather than routing through
-	 *  onStructuralOp: onStructuralOp being defined at all turns on every
-	 *  OTHER editing affordance too (cell double-click, row/col drag-resize,
-	 *  right-click menus, …), which an xlsx-backed table must never offer
-	 *  (see tableBlock.ts's isXlsxBacked doc comment) — resizing the VIEW
-	 *  itself is the one edit-shaped action that's actually safe here, since
-	 *  it's shell/view state (like viewWidth/viewHeight always were), not
-	 *  table data. */
+	/** View-outer-edge drag-resize — an xlsx-backed table's ONLY view-sizing
+	 *  path (same xlsx-only gate as onOpenExternalFile/onDetachFromXlsx
+	 *  above), and the NORMAL table's path in the reading view, where
+	 *  onStructuralOp is absent: that's what makes the view's WIDTH limit
+	 *  adjustable there, mirroring the height limit (see tableBlock.ts's
+	 *  nonXlsxViewResizeAllowed). Deliberately its OWN pair of callbacks
+	 *  rather than routing through onStructuralOp either way: onStructuralOp
+	 *  being defined at all turns on every OTHER editing affordance too
+	 *  (cell double-click, row/col drag-resize, right-click menus, …), which
+	 *  an xlsx-backed or reading-view table must not offer — resizing the
+	 *  VIEW itself is the one edit-shaped action that's actually safe in
+	 *  both, since it's shell/view state (like viewWidth/viewHeight always
+	 *  were), not table data. */
 	onSetViewWidth?: (width: number) => void,
 	onSetViewHeight?: (height: number) => void,
 	/** Left-toolbar snapshot button — the ONE ctrlCol entry with no gate at
@@ -1304,10 +1307,24 @@ export async function renderTable(
 	const statusTabs       = statusBar.createDiv({ cls: 'bt-status-tabs' });
 	const statusStats      = statusBar.createDiv({ cls: 'bt-status-stats' });
 	const statusDivider    = statusBar.createDiv({ cls: 'bt-status-divider', attr: { 'aria-hidden': 'true' } });
+	// Bigger + easier than the old 8px mini-track (reported: the thin bar was
+	// nearly impossible to grab): arrow buttons on both ends, a 14px track,
+	// and the track itself is a control — clicking it jumps the thumb there,
+	// and wheel/trackpad over the whole section scrolls the table (below).
 	const statusScroll     = statusBar.createDiv({ cls: 'bt-status-scroll' });
 	if (model.statusBarScrollWidth) statusScroll.setCssProps({ '--bt-status-scroll-w': `${model.statusBarScrollWidth}px` });
+	const statusScrollPrev = statusScroll.createDiv({
+		cls: 'bt-status-scroll-arrow',
+		attr: { 'aria-label': t('scrollLeft'), 'data-tooltip-position': 'top' },
+	});
+	setIcon(statusScrollPrev, 'chevron-left');
 	const statusScrollTrack = statusScroll.createDiv({ cls: 'bt-status-scroll-track' });
 	const statusScrollThumb = statusScrollTrack.createDiv({ cls: 'bt-status-scroll-thumb' });
+	const statusScrollNext = statusScroll.createDiv({
+		cls: 'bt-status-scroll-arrow',
+		attr: { 'aria-label': t('scrollRight'), 'data-tooltip-position': 'top' },
+	});
+	setIcon(statusScrollNext, 'chevron-right');
 	// statusTabs: renderTable() never populates this itself — a workbook's
 	// sheet tabs are workbook-level chrome owned by tableBlock.ts, which mounts
 	// renderSheetTabBar() into this exact element (found via querySelector,
@@ -1392,6 +1409,57 @@ export async function renderTable(
 		statusScrollThumb.addEventListener('pointermove', onMove);
 		statusScrollThumb.addEventListener('pointerup', onUp);
 	});
+
+	// Track click/drag — clicking anywhere on the track (not just the thumb)
+	// moves the thumb under the pointer, then keeps tracking the drag, the
+	// same way a browser scrollbar behaves. Without this, the only way to
+	// scroll past the thumb was to first grab the (previously 8px-tall)
+	// thumb itself.
+	const scrollThumbToX = (clientX: number) => {
+		const trackRect = statusScrollTrack.getBoundingClientRect();
+		const thumbWidth = statusScrollThumb.getBoundingClientRect().width;
+		const maxThumbLeft = trackRect.width - thumbWidth;
+		const scrollRange = wrapper.scrollWidth - wrapper.clientWidth;
+		if (maxThumbLeft <= 0 || scrollRange <= 0) return; // nothing to scroll
+		const rel = (clientX - trackRect.left - thumbWidth / 2) / maxThumbLeft;
+		wrapper.scrollLeft = Math.max(0, Math.min(1, rel)) * scrollRange;
+	};
+	statusScrollTrack.addEventListener('pointerdown', (e: PointerEvent) => {
+		e.preventDefault();
+		statusScrollTrack.setPointerCapture(e.pointerId);
+		scrollThumbToX(e.clientX);
+		const onMove = (ev: PointerEvent) => scrollThumbToX(ev.clientX);
+		const onUp = () => {
+			statusScrollTrack.removeEventListener('pointermove', onMove);
+			statusScrollTrack.removeEventListener('pointerup', onUp);
+		};
+		statusScrollTrack.addEventListener('pointermove', onMove);
+		statusScrollTrack.addEventListener('pointerup', onUp);
+	});
+
+	// Arrows — one ~4/5-page step each. Guarded on scrollRange so a
+	// fully-visible table (empty state) gets inert buttons, matching the
+	// .bt-status-scroll-empty CSS that fades them out.
+	const scrollByStep = (dir: number) => {
+		const range = wrapper.scrollWidth - wrapper.clientWidth;
+		if (range <= 0) return;
+		wrapper.scrollLeft = Math.max(0, Math.min(range, wrapper.scrollLeft + dir * wrapper.clientWidth * 0.8));
+	};
+	statusScrollPrev.addEventListener('click', () => scrollByStep(-1));
+	statusScrollNext.addEventListener('click', () => scrollByStep(1));
+
+	// Wheel/trackpad over the scrollbar section itself — the table's real
+	// scroll container is the wrapper above, so a wheel gesture here would
+	// otherwise scroll the NOTE (or nothing, if the note can't scroll
+	// further) while the cursor sits over a control that promises
+	// horizontal movement. Horizontal trackpad deltas win over vertical
+	// ones when both are present. { passive: false } — preventDefault below
+	// requires it.
+	statusScroll.addEventListener('wheel', (e: WheelEvent) => {
+		if (wrapper.scrollWidth - wrapper.clientWidth <= 0) return; // let the page own it
+		e.preventDefault();
+		wrapper.scrollLeft += Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+	}, { passive: false });
 
 	// Dragging the divider reallocates space between .bt-status-tabs/-stats and
 	// .bt-status-scroll, same "drag only touches CSS, release commits the op"

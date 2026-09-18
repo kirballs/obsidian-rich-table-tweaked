@@ -113,7 +113,7 @@ An empty `rich-table` code block shows one button per built-in template (current
 
 ![Reorder and ops demo](docs/demo-05-reorder.gif)
 
-**5 · Drag to resize** — column header right edge · row bottom edge
+**5 · Drag to resize** — column header right edge · row bottom edge · the view's own bottom / right / corner edges to make the visible area taller or wider (works in reading view too — the size is saved with the table)
 
 ![Resize demo](docs/demo-06-resize.gif)
 
@@ -161,9 +161,11 @@ An empty `rich-table` code block shows one button per built-in template (current
 
 ![split-cell](docs/demo-cell-split.gif)
 
-**17 · Status bar** — row/column totals, selection size and sum/average; drag the divider to resize its own scrollbar track; ⚙️ view settings to pin it or show only on hover
+**17 · Status bar** — row/column totals, selection size and sum/average; horizontal scrollbar with arrow buttons — drag the thumb, click the track, or scroll the wheel over it; drag the divider to resize its own track; ⚙️ view settings to pin it or show only on hover
 
 > 🎬 *Demo GIF coming soon*
+
+**18 · Opens in preview mode** — setting (on by default): a note containing a rich table opens in reading (preview) mode instead of source mode, so the rendered table is what you see
 
 ---
 

@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS: BetterTableSettings = {
 	customChoices: [],
 	allowReadingViewEdit: false,
 	singleClickEdit: false,
+	openInPreview: true,
 };
 
 export class BetterTableSettingTab extends PluginSettingTab {
@@ -41,6 +42,18 @@ export class BetterTableSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.singleClickEdit)
 					.onChange(async (value) => {
 						this.plugin.settings.singleClickEdit = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName(t('settingOpenInPreviewName'))
+			.setDesc(t('settingOpenInPreviewDesc'))
+			.addToggle(toggle =>
+				toggle
+					.setValue(this.plugin.settings.openInPreview)
+					.onChange(async (value) => {
+						this.plugin.settings.openInPreview = value;
 						await this.plugin.saveSettings();
 					}),
 			);

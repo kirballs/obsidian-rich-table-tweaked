@@ -364,6 +364,28 @@ export class TableBlock extends MarkdownRenderChild {
 			// this one just stays reachable without needing the tab bar in view.
 			const onCreateSheet = onWorkbookOp ? () => onWorkbookOp({ type: 'create-sheet' }) : undefined;
 
+			// View-outer-edge drag-resize persistence for a NORMAL (non-xlsx)
+			// table. In live preview this is dormant — onStructuralOp is defined
+			// there and the renderer prefers it for the same handles — but in the
+			// reading view (no onStructuralOp) it's what makes the view's WIDTH
+			// limit adjustable at all, mirroring the height limit: dragging the
+			// view's edge persists viewWidth/viewHeight into the block through the
+			// ordinary write-back. Resizing the VIEW is shell state, not table
+			// content (see renderer.ts's onSetViewWidth doc comment for the same
+			// reasoning), so it's offered even where every other editing entry
+			// point is gated off — the xlsx-backed table's own onSetViewWidth/
+			// Height already behaved exactly this way. Gated off for old-format
+			// blocks (a write-back would migrate them) and while locked (a locked
+			// table's view size is frozen with everything else about it — see
+			// updateViewFrame's corner-bracket gate on the same condition).
+			const nonXlsxViewResizeAllowed = !this.isXlsxBacked && !isEmpty && !isOldFormat && !locked;
+			const onSetViewWidth = nonXlsxViewResizeAllowed
+			? (width: number) => void this.handleStructuralOp({ type: 'set-view-width', width })
+			: undefined;
+			const onSetViewHeight = nonXlsxViewResizeAllowed
+			? (height: number) => void this.handleStructuralOp({ type: 'set-view-height', height })
+			: undefined;
+
 			// isEmpty's "active" is a stand-in default-template model purely for
 			// version-detection plumbing (see getEmptyTemplate) — the empty-block
 			// banner below renders its own multi-template preview, so skip this
@@ -386,8 +408,8 @@ export class TableBlock extends MarkdownRenderChild {
 					onCreateSheet,
 					this.isXlsxBacked ? () => void this.openXlsxFileExternally() : undefined,
 					this.isXlsxBacked ? () => void this.detachFromXlsx() : undefined,
-					this.isXlsxBacked ? (width: number) => void this.setXlsxViewWidth(width) : undefined,
-					this.isXlsxBacked ? (height: number) => void this.setXlsxViewHeight(height) : undefined,
+					this.isXlsxBacked ? (width: number) => void this.setXlsxViewWidth(width) : onSetViewWidth,
+					this.isXlsxBacked ? (height: number) => void this.setXlsxViewHeight(height) : onSetViewHeight,
 					(kind) => void this.captureSnapshot(kind),
 				);
 			}

@@ -42,3 +42,6 @@ tmp/
 CLAUDE.md
 # Windows Alternate Data Streams
 *:*
+
+# Release zips (build artifacts — see main.js ignore above)
+rich-table-*.zip

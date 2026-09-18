@@ -297,4 +297,13 @@ export interface BetterTableSettings {
 	 * after a 200ms delay, double click opens the style panel.
 	 */
 	singleClickEdit: boolean;
+	/**
+	 * When true (default), a note that contains at least one rich table and
+	 * opens in source mode is switched to reading (preview) mode, so the
+	 * rendered table shows instead of the raw block source. Live preview is
+	 * deliberately left alone — it already renders the block inline, so
+	 * switching would only change an experience the user chose. See main.ts's
+	 * openRichTableInPreview for the wiring.
+	 */
+	openInPreview: boolean;
 }
